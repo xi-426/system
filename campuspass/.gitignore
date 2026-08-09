@@ -1,0 +1,12 @@
+target/
+.idea/
+*.iml
+.vscode/
+.env
+logs/
+
+# Private learning, interview and portfolio-preparation materials
+docs/
+render_full_project_flow.py
+render_registration_flow.py
+compose.local.backup.yaml

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CampusPass</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body{margin:0;font-family:system-ui;background:#f4f6f8;color:#1f2937}header{background:#14532d;color:white;padding:18px 6%}
+    main{max-width:1080px;margin:24px auto;padding:0 16px}.card{background:white;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #0001}
+    input,textarea,button{box-sizing:border-box;padding:10px;border:1px solid #d1d5db;border-radius:7px;margin:4px}input,textarea{min-width:210px}
+    button{background:#166534;color:white;border:0;cursor:pointer}.muted{color:#6b7280}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+    .tag{display:inline-block;padding:3px 8px;border-radius:999px;background:#dcfce7;color:#166534}.error{color:#b91c1c}.ok{color:#166534}
+  </style>
+</head>
+<body>
+<div id="app">
+  <header><h2>CampusPass 校园活动预约平台</h2></header>
+  <main>
+    <section class="card" v-if="!token">
+      <h3>登录</h3>
+      <input v-model="login.username" placeholder="organizer / student / student2">
+      <input v-model="login.password" type="password">
+      <button @click="doLogin">登录</button>
+      <p class="muted">演示密码：CampusPass123!</p>
+    </section>
+    <template v-else>
+      <section class="card">
+        <b>{{user.displayName}}</b> <span class="tag">{{user.role}}</span>
+        <button @click="logout">退出</button>
+        <span :class="message.startsWith('错误')?'error':'ok'">{{message}}</span>
+      </section>
+      <section class="card" v-if="user.role==='ORGANIZER'">
+        <h3>创建活动草稿</h3>
+        <input v-model="form.title" placeholder="标题"><input v-model="form.category" placeholder="分类">
+        <input v-model="form.location" placeholder="地点"><input v-model.number="form.capacity" type="number" placeholder="容量">
+        <textarea v-model="form.description" placeholder="活动说明"></textarea><br>
+        <input v-model="form.registrationStartTime" type="datetime-local">
+        <input v-model="form.registrationEndTime" type="datetime-local">
+        <input v-model="form.activityStartTime" type="datetime-local">
+        <input v-model="form.activityEndTime" type="datetime-local">
+        <button @click="createActivity">创建</button>
+        <button v-if="draftId" @click="publishActivity">发布活动 #{{draftId}}</button>
+      </section>
+      <section class="card">
+        <h3>已发布活动</h3>
+        <button @click="loadActivities">刷新</button>
+        <div class="grid">
+          <article class="card" v-for="a in activities" :key="a.id">
+            <h4>{{a.title}}</h4><p>{{a.category}} · {{a.location}}</p>
+            <p>名额 {{a.registeredCount}} / {{a.capacity}}</p>
+            <p class="muted">{{a.activityStartTime}}</p>
+            <button v-if="user.role==='STUDENT'" @click="reserve(a.id)">预约 / 候补</button>
+          </article>
+        </div>
+      </section>
+      <section class="card" v-if="user.role==='STUDENT'">
+        <h3>我的数据</h3><button @click="loadMine">刷新</button>
+        <p>预约：{{registrations.map(x=>x.activityId+':'+x.status).join('，')||'无'}}</p>
+        <p>候补：{{waitlists.map(x=>x.activityId+':'+x.status).join('，')||'无'}}</p>
+        <p>通知：{{notifications.map(x=>x.title).join('，')||'无'}}</p>
+      </section>
+    </template>
+  </main>
+</div>
+<script>
+const {createApp}=Vue;
+createApp({
+ data:()=>({token:localStorage.token||'',user:JSON.parse(localStorage.user||'null'),message:'',draftId:null,
+  login:{username:'organizer',password:'CampusPass123!'},activities:[],registrations:[],waitlists:[],notifications:[],
+  form:{title:'Java技术分享会',category:'讲座',location:'图书馆报告厅',description:'CampusPass演示活动',capacity:20,
+   registrationStartTime:'2026-07-30T08:00',registrationEndTime:'2026-08-20T18:00',activityStartTime:'2026-08-22T14:00',activityEndTime:'2026-08-22T16:00'}}),
+ methods:{
+  async api(url,opt={}){opt.headers={...(opt.headers||{}),'Content-Type':'application/json',...(this.token?{Authorization:'Bearer '+this.token}:{})};let r=await fetch(url,opt),j=await r.json();if(!r.ok||!j.success)throw Error(j.message||r.status);return j.data},
+  async doLogin(){try{let d=await this.api('/api/auth/login',{method:'POST',body:JSON.stringify(this.login)});this.token=d.accessToken;this.user=d;localStorage.token=this.token;localStorage.user=JSON.stringify(d);await this.loadActivities()}catch(e){this.message='错误：'+e.message}},
+  async logout(){try{await this.api('/api/auth/logout',{method:'POST'})}finally{localStorage.clear();this.token='';this.user=null}},
+  async loadActivities(){try{this.activities=await this.api('/api/activities')}catch(e){this.message='错误：'+e.message}},
+  async createActivity(){try{let d=await this.api('/api/activities',{method:'POST',body:JSON.stringify(this.form)});this.draftId=d.id;this.message='草稿创建成功'}catch(e){this.message='错误：'+e.message}},
+  async publishActivity(){try{await this.api('/api/activities/'+this.draftId+'/publish',{method:'POST'});this.message='发布成功';await this.loadActivities()}catch(e){this.message='错误：'+e.message}},
+  async reserve(id){try{let d=await this.api('/api/activities/'+id+'/registrations',{method:'POST'});this.message=d.outcome==='RESERVED'?'预约成功':'已候补，第'+d.waitlistPosition+'位';await this.loadMine()}catch(e){this.message='错误：'+e.message}},
+  async loadMine(){try{[this.registrations,this.waitlists,this.notifications]=await Promise.all([this.api('/api/me/registrations'),this.api('/api/me/waitlists'),this.api('/api/me/notifications')])}catch(e){this.message='错误：'+e.message}}
+ },mounted(){if(this.token)this.loadActivities()}
+}).mount('#app');
+</script>
+</body>
+</html>
