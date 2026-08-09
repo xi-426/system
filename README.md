@@ -113,10 +113,3 @@ docker run --rm -v ${PWD}:/workspace -w /workspace maven:3.9.11-eclipse-temurin-
 完整的接口、业务规则、状态说明和运行方式请查看：
 
 [CampusPass 项目 README](campuspass/README.md)
-
-## 项目边界
-
-- 当前是 Spring Boot 单体应用，不是 Spring Cloud 微服务。
-- Redis 用于 JWT 黑名单和临时签到 Token，不用于通用活动缓存。
-- RabbitMQ 已实现事务提交后发送与消费幂等；生产级可靠投递还可以继续增加 Outbox、Publisher Confirm、重试和死信队列。
-- 当前不包含 AI、RAG、Tool Calling 或 Agent 功能。
