@@ -190,19 +190,3 @@ src/main/java/com/yan/campuspass
 Flyway 脚本位于 `src/main/resources/db/migration`，按 V1 到 V6 管理数据库结构。
 分块学习材料位于 `docs`，建议按编号顺序复述，最后使用
 `08-mock-interview.md` 完成口述验收。
-
-## 简历描述参考
-
-**CampusPass 校园活动预约与签到平台**
-
-- 基于 Spring Boot、MyBatis-Plus、MySQL 实现活动发布、预约、候补递补、签到和
-  数据统计等核心流程，使用 Spring Security + JWT 完成角色权限控制。
-- 通过 MySQL 条件更新和联合唯一索引保证高并发预约场景下不超卖、不重复预约；
-  结合事务与行锁实现取消后的候补顺序递补。
-- 使用 Redis 保存带 TTL 的临时签到 Token；使用 RabbitMQ 异步处理预约及递补通知，
-  通过业务事件唯一 ID 和消费记录表保证消费幂等。
-- 使用 Flyway 管理数据库版本，Docker Compose 编排 MySQL、Redis、RabbitMQ、
-  后端和 Nginx 前端，并编写 24 个单元测试覆盖核心业务分支。
-
-简历上写进去之前，需要能够解释每个技术为什么使用、解决了什么问题，以及当前方案
-仍有什么边界。
