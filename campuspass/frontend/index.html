@@ -5,81 +5,603 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CampusPass</title>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    body{margin:0;font-family:system-ui;background:#f4f6f8;color:#1f2937}header{background:#14532d;color:white;padding:18px 6%}
-    main{max-width:1080px;margin:24px auto;padding:0 16px}.card{background:white;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #0001}
-    input,textarea,button{box-sizing:border-box;padding:10px;border:1px solid #d1d5db;border-radius:7px;margin:4px}input,textarea{min-width:210px}
-    button{background:#166534;color:white;border:0;cursor:pointer}.muted{color:#6b7280}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
-    .tag{display:inline-block;padding:3px 8px;border-radius:999px;background:#dcfce7;color:#166534}.error{color:#b91c1c}.ok{color:#166534}
+    :root {
+      color-scheme: light;
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      background: #f4f7f5;
+      color: #17251d;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: linear-gradient(180deg, #ecf7ef 0, #f7f8f7 320px); }
+    header {
+      padding: 24px 6%;
+      color: white;
+      background: linear-gradient(135deg, #14532d, #15803d);
+      box-shadow: 0 8px 24px #14532d25;
+    }
+    header h1 { margin: 0 0 5px; font-size: 26px; }
+    header p { margin: 0; color: #dcfce7; }
+    main { max-width: 1120px; margin: 24px auto; padding: 0 16px 40px; }
+    .card {
+      background: white;
+      border: 1px solid #dfe9e2;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 28px #173d2410;
+    }
+    .activity-card { margin: 0; height: 100%; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); gap: 14px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    input, textarea, button {
+      font: inherit;
+      border-radius: 9px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid #cad8ce;
+      background: #fbfdfb;
+    }
+    textarea { min-height: 78px; resize: vertical; }
+    button {
+      padding: 10px 14px;
+      border: 0;
+      color: white;
+      background: #166534;
+      cursor: pointer;
+      margin: 3px 4px 3px 0;
+    }
+    button:hover { background: #14532d; }
+    button.secondary { color: #166534; background: #dcfce7; }
+    button.danger { color: #991b1b; background: #fee2e2; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .toolbar.spread { justify-content: space-between; }
+    .tag {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 999px;
+      color: #166534;
+      background: #dcfce7;
+      font-size: 13px;
+    }
+    .muted { color: #64746a; }
+    .error { color: #b91c1c; }
+    .ok { color: #166534; }
+    .message { margin-left: 8px; }
+    .kv { display: grid; grid-template-columns: 100px 1fr; gap: 7px 12px; }
+    .kv span:nth-child(odd) { color: #64746a; }
+    .qr-layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) 1fr;
+      align-items: center;
+      gap: 24px;
+    }
+    .qr-frame {
+      min-height: 248px;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      border: 1px dashed #86a991;
+      border-radius: 14px;
+      background: #fbfffc;
+    }
+    #qr-code img, #qr-code canvas { max-width: 100%; height: auto !important; }
+    .countdown { font-size: 30px; font-weight: 750; color: #166534; margin: 8px 0; }
+    .token-text { word-break: break-all; font-family: ui-monospace, monospace; font-size: 12px; }
+    .data-list { display: grid; gap: 9px; padding: 0; list-style: none; }
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f5f8f6;
+    }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr)); gap: 10px; }
+    .stat { padding: 14px; border-radius: 12px; background: #eff8f1; }
+    .stat b { display: block; margin-top: 5px; font-size: 24px; color: #166534; }
+    @media (max-width: 720px) {
+      .qr-layout { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      header { padding: 20px 18px; }
+    }
   </style>
 </head>
 <body>
 <div id="app">
-  <header><h2>CampusPass 校园活动预约平台</h2></header>
+  <header>
+    <h1>CampusPass 校园活动预约平台</h1>
+    <p>发布、预约、候补、递补、扫码签到与到场统计</p>
+  </header>
+
   <main>
     <section class="card" v-if="!token">
-      <h3>登录</h3>
-      <input v-model="login.username" placeholder="organizer / student / student2">
-      <input v-model="login.password" type="password">
+      <h2>{{pendingCheckinToken ? '登录后完成活动签到' : '登录系统'}}</h2>
+      <p v-if="pendingCheckinToken" class="muted">已从二维码中识别签到 Token，请使用学生账号登录。</p>
+      <div class="form-grid">
+        <input v-model="login.username" placeholder="organizer / student / student2">
+        <input v-model="login.password" type="password" placeholder="密码">
+      </div>
       <button @click="doLogin">登录</button>
       <p class="muted">演示密码：CampusPass123!</p>
+      <p v-if="message" :class="message.startsWith('错误') ? 'error' : 'ok'">{{message}}</p>
     </section>
+
     <template v-else>
-      <section class="card">
-        <b>{{user.displayName}}</b> <span class="tag">{{user.role}}</span>
-        <button @click="logout">退出</button>
-        <span :class="message.startsWith('错误')?'error':'ok'">{{message}}</span>
+      <section class="card toolbar spread">
+        <div>
+          <b>{{user.displayName}}</b>
+          <span class="tag">{{user.role}}</span>
+          <span v-if="message" class="message" :class="message.startsWith('错误') ? 'error' : 'ok'">{{message}}</span>
+        </div>
+        <button class="secondary" @click="logout">退出</button>
       </section>
-      <section class="card" v-if="user.role==='ORGANIZER'">
-        <h3>创建活动草稿</h3>
-        <input v-model="form.title" placeholder="标题"><input v-model="form.category" placeholder="分类">
-        <input v-model="form.location" placeholder="地点"><input v-model.number="form.capacity" type="number" placeholder="容量">
-        <textarea v-model="form.description" placeholder="活动说明"></textarea><br>
-        <input v-model="form.registrationStartTime" type="datetime-local">
-        <input v-model="form.registrationEndTime" type="datetime-local">
-        <input v-model="form.activityStartTime" type="datetime-local">
-        <input v-model="form.activityEndTime" type="datetime-local">
-        <button @click="createActivity">创建</button>
-        <button v-if="draftId" @click="publishActivity">发布活动 #{{draftId}}</button>
+
+      <section class="card" v-if="user.role === 'STUDENT' && pendingCheckinToken">
+        <h2>活动签到</h2>
+        <p class="muted">二维码已经识别。后端还会校验当前账号是否预约成功、签到码是否过期以及是否重复签到。</p>
+        <p class="token-text">Token：{{maskToken(pendingCheckinToken)}}</p>
+        <button @click="checkIn" :disabled="checkingIn">{{checkingIn ? '签到处理中…' : '确认签到'}}</button>
+        <button class="secondary" @click="clearPendingCheckin">暂不签到</button>
       </section>
+
+      <section class="card" v-if="user.role === 'STUDENT'">
+        <h2>手动签到</h2>
+        <p class="muted">无法扫码时可以输入组织者展示的签到 Token。</p>
+        <div class="toolbar">
+          <input v-model.trim="manualCheckinToken" placeholder="输入签到 Token">
+          <button @click="useManualToken">识别 Token</button>
+        </div>
+      </section>
+
+      <section class="card" v-if="user.role === 'ORGANIZER'">
+        <h2>创建活动草稿</h2>
+        <p class="muted">默认时间会根据当前时间生成，容量默认为 1，便于演示预约、候补和签到完整链路。</p>
+        <div class="form-grid">
+          <input v-model="form.title" placeholder="标题">
+          <input v-model="form.category" placeholder="分类">
+          <input v-model="form.location" placeholder="地点">
+          <input v-model.number="form.capacity" type="number" min="1" placeholder="容量">
+          <input v-model="form.registrationStartTime" type="datetime-local" title="报名开始">
+          <input v-model="form.registrationEndTime" type="datetime-local" title="报名结束">
+          <input v-model="form.activityStartTime" type="datetime-local" title="活动开始">
+          <input v-model="form.activityEndTime" type="datetime-local" title="活动结束">
+        </div>
+        <textarea v-model="form.description" placeholder="活动说明"></textarea>
+        <div>
+          <button @click="createActivity">创建草稿</button>
+          <button v-if="draftId" @click="publishActivity">发布活动 #{{draftId}}</button>
+          <button class="secondary" @click="resetDemoTime">刷新演示时间</button>
+        </div>
+      </section>
+
+      <section class="card" v-if="qrToken">
+        <div class="toolbar spread">
+          <div>
+            <h2 style="margin-bottom:4px">活动签到二维码</h2>
+            <span class="muted">{{qrActivityTitle}}</span>
+          </div>
+          <button class="secondary" @click="closeQr">关闭</button>
+        </div>
+        <div class="qr-layout">
+          <div class="qr-frame">
+            <div id="qr-code"></div>
+          </div>
+          <div>
+            <span class="tag">Redis TTL 10 分钟</span>
+            <p class="countdown">{{formatCountdown(qrSecondsLeft)}}</p>
+            <p :class="qrSecondsLeft > 0 ? 'ok' : 'error'">
+              {{qrSecondsLeft > 0 ? '二维码有效，学生可以扫码签到' : '二维码已过期，请重新生成'}}
+            </p>
+            <p class="muted">二维码只包含签到链接，不包含 JWT、密码或用户信息。</p>
+            <p class="token-text">Token：{{showQrToken ? qrToken : maskToken(qrToken)}}</p>
+            <button class="secondary" @click="showQrToken = !showQrToken">
+              {{showQrToken ? '隐藏 Token' : '显示备用 Token'}}
+            </button>
+            <button v-if="qrSecondsLeft <= 0" @click="generateCheckinToken(qrActivityId)">重新生成</button>
+          </div>
+        </div>
+      </section>
+
       <section class="card">
-        <h3>已发布活动</h3>
-        <button @click="loadActivities">刷新</button>
+        <div class="toolbar spread">
+          <div>
+            <h2 style="margin-bottom:4px">已发布活动</h2>
+            <span class="muted">组织者管理自己的活动，学生完成预约或候补。</span>
+          </div>
+          <button class="secondary" @click="loadActivities">刷新</button>
+        </div>
         <div class="grid">
-          <article class="card" v-for="a in activities" :key="a.id">
-            <h4>{{a.title}}</h4><p>{{a.category}} · {{a.location}}</p>
-            <p>名额 {{a.registeredCount}} / {{a.capacity}}</p>
-            <p class="muted">{{a.activityStartTime}}</p>
-            <button v-if="user.role==='STUDENT'" @click="reserve(a.id)">预约 / 候补</button>
+          <article class="card activity-card" v-for="a in activities" :key="a.id">
+            <div class="toolbar spread">
+              <h3>{{a.title}}</h3>
+              <span class="tag">{{a.status}}</span>
+            </div>
+            <p>{{a.category}} · {{a.location}}</p>
+            <p><b>名额 {{a.registeredCount}} / {{a.capacity}}</b></p>
+            <p class="muted">报名截止：{{formatTime(a.registrationEndTime)}}</p>
+            <p class="muted">活动开始：{{formatTime(a.activityStartTime)}}</p>
+            <button v-if="user.role === 'STUDENT'" @click="reserve(a.id)">预约 / 候补</button>
+            <template v-if="user.role === 'ORGANIZER' && a.organizerId === user.userId">
+              <button @click="generateCheckinToken(a.id, a.title)">生成签到二维码</button>
+              <button class="secondary" @click="loadStats(a.id, a.title)">查看统计</button>
+            </template>
           </article>
         </div>
       </section>
-      <section class="card" v-if="user.role==='STUDENT'">
-        <h3>我的数据</h3><button @click="loadMine">刷新</button>
-        <p>预约：{{registrations.map(x=>x.activityId+':'+x.status).join('，')||'无'}}</p>
-        <p>候补：{{waitlists.map(x=>x.activityId+':'+x.status).join('，')||'无'}}</p>
-        <p>通知：{{notifications.map(x=>x.title).join('，')||'无'}}</p>
+
+      <section class="card" v-if="activeStats">
+        <div class="toolbar spread">
+          <div>
+            <h2 style="margin-bottom:4px">活动统计</h2>
+            <span class="muted">{{statsActivityTitle}}</span>
+          </div>
+          <button class="secondary" @click="activeStats = null">关闭</button>
+        </div>
+        <div class="stats">
+          <div class="stat"><span>活动容量</span><b>{{activeStats.capacity}}</b></div>
+          <div class="stat"><span>正式报名</span><b>{{activeStats.registeredCount}}</b></div>
+          <div class="stat"><span>实际签到</span><b>{{activeStats.checkedInCount}}</b></div>
+          <div class="stat"><span>到场率</span><b>{{formatRate(activeStats.attendanceRate)}}</b></div>
+        </div>
+      </section>
+
+      <section class="card" v-if="user.role === 'STUDENT'">
+        <div class="toolbar spread">
+          <h2>我的活动数据</h2>
+          <button class="secondary" @click="loadMine">刷新</button>
+        </div>
+
+        <h3>正式预约</h3>
+        <ul class="data-list">
+          <li class="data-row" v-for="item in registrations" :key="item.id">
+            <span>活动 #{{item.activityId}} · <b>{{item.status}}</b></span>
+            <button v-if="item.status === 'RESERVED'" class="danger" @click="cancelRegistration(item.activityId)">取消预约</button>
+          </li>
+          <li v-if="!registrations.length" class="muted">暂无预约记录</li>
+        </ul>
+
+        <h3>候补记录</h3>
+        <ul class="data-list">
+          <li class="data-row" v-for="item in waitlists" :key="item.id">
+            <span>活动 #{{item.activityId}} · <b>{{item.status}}</b></span>
+            <button v-if="item.status === 'WAITING'" class="danger" @click="cancelWaitlist(item.activityId)">退出候补</button>
+          </li>
+          <li v-if="!waitlists.length" class="muted">暂无候补记录</li>
+        </ul>
+
+        <h3>站内通知</h3>
+        <ul class="data-list">
+          <li class="data-row" v-for="item in notifications" :key="item.id">
+            <span><b>{{item.title}}</b><br><small class="muted">{{item.content}}</small></span>
+            <span class="tag">{{item.type}}</span>
+          </li>
+          <li v-if="!notifications.length" class="muted">暂无通知</li>
+        </ul>
       </section>
     </template>
   </main>
 </div>
+
 <script>
-const {createApp}=Vue;
+const { createApp } = Vue;
+
+function toLocalInput(date) {
+  const pad = value => String(value).padStart(2, '0');
+  return date.getFullYear() + '-' +
+    pad(date.getMonth() + 1) + '-' +
+    pad(date.getDate()) + 'T' +
+    pad(date.getHours()) + ':' +
+    pad(date.getMinutes());
+}
+
+function demoForm() {
+  const now = new Date();
+  const plusMinutes = minutes => new Date(now.getTime() + minutes * 60000);
+  return {
+    title: 'Java 并发编程分享会',
+    category: '讲座',
+    location: '图书馆报告厅',
+    description: 'CampusPass 预约、候补、递补和二维码签到演示活动',
+    capacity: 1,
+    registrationStartTime: toLocalInput(plusMinutes(-10)),
+    registrationEndTime: toLocalInput(plusMinutes(10)),
+    activityStartTime: toLocalInput(plusMinutes(20)),
+    activityEndTime: toLocalInput(plusMinutes(80))
+  };
+}
+
+function tokenFromHash() {
+  const value = window.location.hash.replace(/^#/, '');
+  return new URLSearchParams(value).get('checkin') || '';
+}
+
 createApp({
- data:()=>({token:localStorage.token||'',user:JSON.parse(localStorage.user||'null'),message:'',draftId:null,
-  login:{username:'organizer',password:'CampusPass123!'},activities:[],registrations:[],waitlists:[],notifications:[],
-  form:{title:'Java技术分享会',category:'讲座',location:'图书馆报告厅',description:'CampusPass演示活动',capacity:20,
-   registrationStartTime:'2026-07-30T08:00',registrationEndTime:'2026-08-20T18:00',activityStartTime:'2026-08-22T14:00',activityEndTime:'2026-08-22T16:00'}}),
- methods:{
-  async api(url,opt={}){opt.headers={...(opt.headers||{}),'Content-Type':'application/json',...(this.token?{Authorization:'Bearer '+this.token}:{})};let r=await fetch(url,opt),j=await r.json();if(!r.ok||!j.success)throw Error(j.message||r.status);return j.data},
-  async doLogin(){try{let d=await this.api('/api/auth/login',{method:'POST',body:JSON.stringify(this.login)});this.token=d.accessToken;this.user=d;localStorage.token=this.token;localStorage.user=JSON.stringify(d);await this.loadActivities()}catch(e){this.message='错误：'+e.message}},
-  async logout(){try{await this.api('/api/auth/logout',{method:'POST'})}finally{localStorage.clear();this.token='';this.user=null}},
-  async loadActivities(){try{this.activities=await this.api('/api/activities')}catch(e){this.message='错误：'+e.message}},
-  async createActivity(){try{let d=await this.api('/api/activities',{method:'POST',body:JSON.stringify(this.form)});this.draftId=d.id;this.message='草稿创建成功'}catch(e){this.message='错误：'+e.message}},
-  async publishActivity(){try{await this.api('/api/activities/'+this.draftId+'/publish',{method:'POST'});this.message='发布成功';await this.loadActivities()}catch(e){this.message='错误：'+e.message}},
-  async reserve(id){try{let d=await this.api('/api/activities/'+id+'/registrations',{method:'POST'});this.message=d.outcome==='RESERVED'?'预约成功':'已候补，第'+d.waitlistPosition+'位';await this.loadMine()}catch(e){this.message='错误：'+e.message}},
-  async loadMine(){try{[this.registrations,this.waitlists,this.notifications]=await Promise.all([this.api('/api/me/registrations'),this.api('/api/me/waitlists'),this.api('/api/me/notifications')])}catch(e){this.message='错误：'+e.message}}
- },mounted(){if(this.token)this.loadActivities()}
+  data() {
+    return {
+      token: localStorage.token || '',
+      user: JSON.parse(localStorage.user || 'null'),
+      message: '',
+      draftId: null,
+      login: { username: 'organizer', password: 'CampusPass123!' },
+      form: demoForm(),
+      activities: [],
+      registrations: [],
+      waitlists: [],
+      notifications: [],
+      pendingCheckinToken: tokenFromHash(),
+      manualCheckinToken: '',
+      checkingIn: false,
+      qrToken: '',
+      qrActivityId: null,
+      qrActivityTitle: '',
+      qrExpiresAt: null,
+      qrSecondsLeft: 0,
+      qrTimer: null,
+      showQrToken: false,
+      activeStats: null,
+      statsActivityTitle: ''
+    };
+  },
+  methods: {
+    async api(url, options) {
+      const opt = options || {};
+      opt.headers = Object.assign(
+        {},
+        opt.headers || {},
+        { 'Content-Type': 'application/json' },
+        this.token ? { Authorization: 'Bearer ' + this.token } : {}
+      );
+      const response = await fetch(url, opt);
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        throw new Error(json.message || String(response.status));
+      }
+      return json.data;
+    },
+    async doLogin() {
+      try {
+        const data = await this.api('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify(this.login)
+        });
+        this.token = data.accessToken;
+        this.user = data;
+        localStorage.token = this.token;
+        localStorage.user = JSON.stringify(data);
+        this.message = '登录成功';
+        await this.loadActivities();
+        if (this.user.role === 'STUDENT') {
+          await this.loadMine();
+        }
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    async logout() {
+      try {
+        await this.api('/api/auth/logout', { method: 'POST' });
+      } finally {
+        localStorage.clear();
+        this.token = '';
+        this.user = null;
+        this.activities = [];
+        this.closeQr();
+      }
+    },
+    async loadActivities() {
+      try {
+        this.activities = await this.api('/api/activities');
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    async createActivity() {
+      try {
+        const data = await this.api('/api/activities', {
+          method: 'POST',
+          body: JSON.stringify(this.form)
+        });
+        this.draftId = data.id;
+        this.message = '草稿创建成功，请点击发布';
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    async publishActivity() {
+      try {
+        await this.api('/api/activities/' + this.draftId + '/publish', { method: 'POST' });
+        this.message = '活动发布成功';
+        await this.loadActivities();
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    resetDemoTime() {
+      this.form = demoForm();
+      this.message = '演示时间已按当前时间刷新';
+    },
+    async reserve(activityId) {
+      try {
+        const data = await this.api('/api/activities/' + activityId + '/registrations', { method: 'POST' });
+        this.message = data.outcome === 'RESERVED'
+          ? '预约成功'
+          : '活动已满，已进入候补第 ' + data.waitlistPosition + ' 位';
+        await Promise.all([this.loadActivities(), this.loadMine()]);
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    async cancelRegistration(activityId) {
+      try {
+        await this.api('/api/activities/' + activityId + '/registrations/me', { method: 'DELETE' });
+        this.message = '预约已取消；如有候补，系统已自动递补';
+        await Promise.all([this.loadActivities(), this.loadMine()]);
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    async cancelWaitlist(activityId) {
+      try {
+        await this.api('/api/activities/' + activityId + '/registrations/waitlist/me', { method: 'DELETE' });
+        this.message = '已退出候补';
+        await this.loadMine();
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    async loadMine() {
+      try {
+        const data = await Promise.all([
+          this.api('/api/me/registrations'),
+          this.api('/api/me/waitlists'),
+          this.api('/api/me/notifications')
+        ]);
+        this.registrations = data[0];
+        this.waitlists = data[1];
+        this.notifications = data[2];
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    async generateCheckinToken(activityId, title) {
+      try {
+        const data = await this.api('/api/activities/' + activityId + '/checkin-token', { method: 'POST' });
+        this.qrToken = data.token;
+        this.qrActivityId = activityId;
+        this.qrActivityTitle = title || this.qrActivityTitle || ('活动 #' + activityId);
+        this.qrExpiresAt = new Date(data.expiresAt);
+        this.showQrToken = false;
+        this.startQrCountdown();
+        await this.$nextTick();
+        this.renderQr();
+        this.message = '签到二维码生成成功';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    renderQr() {
+      const container = document.getElementById('qr-code');
+      if (!container || !this.qrToken) {
+        return;
+      }
+      container.innerHTML = '';
+      const checkinUrl = window.location.origin + window.location.pathname +
+        '#checkin=' + encodeURIComponent(this.qrToken);
+      new QRCode(container, {
+        text: checkinUrl,
+        width: 216,
+        height: 216,
+        colorDark: '#123a21',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    },
+    startQrCountdown() {
+      clearInterval(this.qrTimer);
+      const update = () => {
+        this.qrSecondsLeft = Math.max(
+          0,
+          Math.ceil((this.qrExpiresAt.getTime() - Date.now()) / 1000)
+        );
+        if (this.qrSecondsLeft <= 0) {
+          clearInterval(this.qrTimer);
+        }
+      };
+      update();
+      this.qrTimer = setInterval(update, 1000);
+    },
+    closeQr() {
+      clearInterval(this.qrTimer);
+      this.qrTimer = null;
+      this.qrToken = '';
+      this.qrActivityId = null;
+      this.qrActivityTitle = '';
+      this.qrExpiresAt = null;
+      this.qrSecondsLeft = 0;
+      this.showQrToken = false;
+    },
+    useManualToken() {
+      if (!this.manualCheckinToken) {
+        this.message = '错误：请输入签到 Token';
+        return;
+      }
+      this.pendingCheckinToken = this.manualCheckinToken;
+      this.message = 'Token 已识别，请确认签到';
+    },
+    async checkIn() {
+      if (!this.pendingCheckinToken) {
+        return;
+      }
+      this.checkingIn = true;
+      try {
+        const result = await this.api('/api/checkins', {
+          method: 'POST',
+          body: JSON.stringify({ token: this.pendingCheckinToken })
+        });
+        this.message = '签到成功：活动 #' + result.activityId;
+        this.pendingCheckinToken = '';
+        this.manualCheckinToken = '';
+        history.replaceState(null, '', window.location.pathname);
+        await this.loadMine();
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      } finally {
+        this.checkingIn = false;
+      }
+    },
+    clearPendingCheckin() {
+      this.pendingCheckinToken = '';
+      this.manualCheckinToken = '';
+      history.replaceState(null, '', window.location.pathname);
+    },
+    async loadStats(activityId, title) {
+      try {
+        this.activeStats = await this.api('/api/activities/' + activityId + '/stats');
+        this.statsActivityTitle = title;
+        this.message = '统计数据已刷新';
+      } catch (error) {
+        this.message = '错误：' + error.message;
+      }
+    },
+    formatCountdown(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remain = seconds % 60;
+      return String(minutes).padStart(2, '0') + ':' + String(remain).padStart(2, '0');
+    },
+    maskToken(value) {
+      if (!value || value.length < 12) {
+        return '••••••••';
+      }
+      return value.slice(0, 6) + '••••••••••' + value.slice(-4);
+    },
+    formatTime(value) {
+      return value ? String(value).replace('T', ' ').slice(0, 16) : '-';
+    },
+    formatRate(value) {
+      return (Number(value || 0) * 100).toFixed(0) + '%';
+    }
+  },
+  async mounted() {
+    window.addEventListener('hashchange', () => {
+      this.pendingCheckinToken = tokenFromHash();
+    });
+    if (this.token) {
+      await this.loadActivities();
+      if (this.user && this.user.role === 'STUDENT') {
+        await this.loadMine();
+      }
+    }
+  },
+  beforeUnmount() {
+    clearInterval(this.qrTimer);
+  }
 }).mount('#app');
 </script>
 </body>
